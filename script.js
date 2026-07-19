@@ -4,6 +4,7 @@ document.addEventListener("DOMContentLoaded", () => {
     let isPremium = true; // Hardcoded true to remove the ad modal permanently
     let flashLimit = 5; 
     let proLimit = 3;
+    let isGenerating = false; // GLOBAL GUARD: Prevents overlapping request lockups
 
     // --- Dynamic Chat History Management States ---
     let chatSessions = {}; // Key-value index registry tracking -> { sessionId: { html: string, apiMessages: Array } }
@@ -83,6 +84,7 @@ document.addEventListener("DOMContentLoaded", () => {
     if (chooserTrigger) {
         chooserTrigger.addEventListener("click", (e) => {
             e.stopPropagation();
+            if (isGenerating) return; // Block model changes mid-generation
             chooserTrigger.classList.toggle("open");
             modelDropdown.classList.toggle("show");
         });
@@ -125,6 +127,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     // Strict input scaling calculation logic matching 32px standard layout
     function adjustInputHeight() {
+        if (isGenerating) return; // Do not alter UI state parameters if engine is typing
         userInput.style.height = "32px"; 
         const scrollHeight = userInput.scrollHeight;
         if (scrollHeight > 32) {
@@ -138,7 +141,7 @@ document.addEventListener("DOMContentLoaded", () => {
         userInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault(); 
-                if (userInput.value.trim() !== "") {
+                if (userInput.value.trim() !== "" && !isGenerating) {
                     chatForm.requestSubmit(); 
                 }
             }
@@ -179,6 +182,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 lucide.createIcons();
 
                 historyToken.addEventListener("click", () => {
+                    if (isGenerating) return; // Block session switching mid-generation
                     switchActiveSessionContext(historyToken.getAttribute("data-session-id"));
                 });
             }
@@ -206,6 +210,10 @@ document.addEventListener("DOMContentLoaded", () => {
 
     if (newChatBtn) {
         newChatBtn.addEventListener("click", () => {
+            // Force reset state guard mechanics on hard reset command execution
+            isGenerating = false;
+            userInput.disabled = false;
+
             const hasMessages = messagesContainer.querySelector(".message-wrapper");
             if (hasMessages) {
                 syncCurrentSessionToCache();
@@ -228,17 +236,25 @@ document.addEventListener("DOMContentLoaded", () => {
             userInput.value = "";
             userInput.style.height = "32px";
             sendBtn.disabled = true;
+            userInput.focus();
         });
     }
 
     if (chatForm) {
         chatForm.addEventListener("submit", (e) => {
             e.preventDefault();
+            if (isGenerating) return; // Hard structural interception to stop overlapping threads
+
             const queryText = userInput.value.trim();
             if (!queryText) return;
 
             const welcomeScreen = document.getElementById("welcomeScreen");
             if (welcomeScreen) welcomeScreen.remove();
+
+            // Set systemic generation lock parameters
+            isGenerating = true;
+            userInput.disabled = true;
+            sendBtn.disabled = true;
 
             appendMessage(queryText, "user");
             
@@ -249,7 +265,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             userInput.value = "";
             userInput.style.height = "32px"; 
-            sendBtn.disabled = true;
 
             fetchLiveAI(queryText);
         });
@@ -314,16 +329,14 @@ document.addEventListener("DOMContentLoaded", () => {
         ensureSessionExists(currentSessionId);
         
         // --- ADVANCED PAYLOAD COMPRESSOR ENGINE ---
-        // Budgets character strings dynamically to stop large histories from choking the server
         let recentHistory = [];
         let totalChars = 0;
-        const maxChars = 3500; // Calibrated safe payload size limit
+        const maxChars = 3500; 
         const historyArray = chatSessions[currentSessionId].apiMessages;
         
         for (let i = historyArray.length - 1; i >= 0; i--) {
             let msgContent = historyArray[i].content;
             
-            // If an individual code block response is monstrous, trim it for network transmission stability
             if (msgContent.length > 2000) {
                 msgContent = msgContent.substring(0, 2000) + "\n\n[...System: Context truncated to save payload overhead...]";
             }
@@ -365,6 +378,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     typingIndicator.remove();
                     bubble.innerHTML = `<span style="color: #ef4444;">Server overloaded. Click "New Chat" to clear the stack and try again!</span>`;
                     syncCurrentSessionToCache();
+                    
+                    // CRITICAL UNLOCK PATH: Restores controls if network completely drops
+                    isGenerating = false;
+                    userInput.disabled = false;
+                    adjustInputHeight();
+                    userInput.focus();
                     return; 
                 }
                 await new Promise(r => setTimeout(r, 1000));
@@ -461,8 +480,6 @@ document.addEventListener("DOMContentLoaded", () => {
     function parseMarkdown(text) {
         let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         
-        // --- AUTO-CLOSE BLOCK ---
-        // Checks backtick uniformity and auto-appends syntax terminations if truncated mid-generation
         const codeBlockCount = (escaped.match(/```/g) || []).length;
         if (codeBlockCount % 2 !== 0) escaped += "\n```"; 
 
@@ -526,6 +543,12 @@ document.addEventListener("DOMContentLoaded", () => {
             
             if (currentIndex < fullString.length) {
                 setTimeout(type, 2);
+            } else {
+                // CRITICAL SUCCESS UNLOCK PATH: AI finished printing -> Unlock input fields cleanly
+                isGenerating = false;
+                userInput.disabled = false;
+                adjustInputHeight();
+                userInput.focus();
             }
         }
         
