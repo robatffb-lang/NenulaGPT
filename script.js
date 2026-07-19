@@ -2,19 +2,22 @@ document.addEventListener("DOMContentLoaded", () => {
     // --- State Machine Configuration Management Engine ---
     let currentModel = "flash-x";
     let isPremium = false;
-    let flashLimit = 50; 
-    let proLimit = 35;
+    let flashLimit = 5; 
+    let proLimit = 3;
 
     // --- Dynamic Chat History Management States ---
-    let chatSessions = {}; // Will hold data objects -> { html: string, apiMessages: Array }
-let currentSessionId = "session_" + Date.now();
+    let chatSessions = {}; // Key-value index registry tracking -> { sessionId: { html: string, apiMessages: Array } }
+    let currentSessionId = "session_" + Date.now();
 
-// Safety factory helper to ensure data objects exist before writing to them
-function ensureSessionExists(id) {
-    if (!chatSessions[id]) {
-        chatSessions[id] = { html: "", apiMessages: [] };
+    // Safety factory helper to ensure data objects exist before reading/writing
+    function ensureSessionExists(id) {
+        if (!chatSessions[id]) {
+            chatSessions[id] = { html: "", apiMessages: [] };
+        }
     }
-}
+    
+    // Initialize the first session immediately
+    ensureSessionExists(currentSessionId);
 
     // Inject Image-2 Dropdown Chooser Layout Context Components
     const inputForm = document.querySelector(".input-form");
@@ -86,33 +89,6 @@ function ensureSessionExists(id) {
     const sendBtn = document.getElementById("sendBtn");
     const messagesContainer = document.getElementById("messagesContainer");
     const newChatBtn = document.getElementById("newChatBtn");
-
-    // Updated New Chat Handler
-    newChatBtn.addEventListener("click", () => {
-        // If the current chat has messages, save it before wiping the screen
-        const hasMessages = messagesContainer.querySelector(".message-wrapper");
-        if (hasMessages) {
-            syncCurrentSessionToCache();
-        }
-
-        document.querySelectorAll(".history-item").forEach(token => token.classList.remove("active"));
-        
-        // Generate a clean session tracker parameters configuration mapping ID
-        currentSessionId = "session_" + Date.now();
-        
-        messagesContainer.innerHTML = `
-            <div class="welcome-screen" id="welcomeScreen">
-                <div class="welcome-icon"><i data-lucide="zap" style="width:36px;height:36px;"></i></div>
-                <h1>What can I help with?</h1>
-                <p>Select a computational model engine and drop your code architectures or requirements below to begin debugging.</p>
-            </div>
-        `;
-        
-        lucide.createIcons();
-        userInput.value = "";
-        userInput.style.height = "32px";
-        sendBtn.disabled = true;
-    });
     
     const chooserTrigger = document.getElementById("chooserTrigger");
     const modelDropdown = document.getElementById("modelDropdown");
@@ -127,8 +103,10 @@ function ensureSessionExists(id) {
 
     // Close Dropdown upon Outside Click Context Interception
     document.addEventListener("click", () => {
-        chooserTrigger.classList.remove("open");
-        modelDropdown.classList.remove("show");
+        if (chooserTrigger && modelDropdown) {
+            chooserTrigger.classList.remove("open");
+            modelDropdown.classList.remove("show");
+        }
     });
 
     // Sync state data across visual badge systems
@@ -187,7 +165,7 @@ function ensureSessionExists(id) {
         premiumModal.classList.remove("show");
     });
 
-    // Strict pixel matching scaling layout execution loop
+    // Strict pixel matching scaling layout execution loop (Matches updated css 32px height)
     function adjustInputHeight() {
         userInput.style.height = "32px"; 
         const scrollHeight = userInput.scrollHeight;
@@ -210,9 +188,10 @@ function ensureSessionExists(id) {
 
     // --- Advanced Engine History Session Synchronization Hooks ---
     function syncCurrentSessionToCache() {
+        ensureSessionExists(currentSessionId);
         const structuralVerification = messagesContainer.querySelector(".message-wrapper");
         if (structuralVerification) {
-            chatSessions[currentSessionId] = messagesContainer.innerHTML;
+            chatSessions[currentSessionId].html = messagesContainer.innerHTML;
         }
     }
 
@@ -254,7 +233,9 @@ function ensureSessionExists(id) {
         syncCurrentSessionToCache();
 
         currentSessionId = targetSessionId;
-        messagesContainer.innerHTML = chatSessions[targetSessionId];
+        ensureSessionExists(currentSessionId);
+        
+        messagesContainer.innerHTML = chatSessions[targetSessionId].html || "";
 
         document.querySelectorAll(".history-item").forEach(token => {
             token.classList.remove("active");
@@ -269,12 +250,16 @@ function ensureSessionExists(id) {
 
     // New Chat Action Route Implementation Execution Handler
     newChatBtn.addEventListener("click", () => {
-        syncCurrentSessionToCache();
+        const hasMessages = messagesContainer.querySelector(".message-wrapper");
+        if (hasMessages) {
+            syncCurrentSessionToCache();
+        }
 
         document.querySelectorAll(".history-item").forEach(token => token.classList.remove("active"));
         
         // Factory fresh context state parameters mapping
         currentSessionId = "session_" + Date.now();
+        ensureSessionExists(currentSessionId);
         
         messagesContainer.innerHTML = `
             <div class="welcome-screen" id="welcomeScreen">
@@ -300,6 +285,10 @@ function ensureSessionExists(id) {
 
         appendMessage(queryText, "user");
         
+        // Lock user query into the session array pipeline memory
+        ensureSessionExists(currentSessionId);
+        chatSessions[currentSessionId].apiMessages.push({ role: "user", content: queryText });
+
         // Intercept query state pipeline immediately to ensure sidebar layout binding rules mapping
         handleSidebarHistoryRegistration(queryText);
 
@@ -359,22 +348,27 @@ function ensureSessionExists(id) {
             currentSystemContent += ' For technical queries, provide extensive, deep architecture details, edge-case evaluations, and deep code comments. If the user is just greeting you or making small talk, respond conversationally, naturally, and concisely without generating unprompted code structures.';
         }
 
+        // Combine system configuration maps with dynamic context thread memory paths
+        ensureSessionExists(currentSessionId);
+        const payloadMessages = [
+            { role: 'system', content: currentSystemContent },
+            ...chatSessions[currentSessionId].apiMessages
+        ];
+
         try {
             const response = await fetch('https://text.pollinations.ai/', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    messages: [
-                        { role: 'system', content: currentSystemContent },
-                        { role: 'user', content: userPrompt }
-                    ]
-                })
+                body: JSON.stringify({ messages: payloadMessages })
             });
 
             if (!response.ok) throw new Error("API Pipeline Exception");
 
             const replyText = await response.text();
             typingIndicator.remove();
+            
+            // Log assistant answer array properties into session state indices
+            chatSessions[currentSessionId].apiMessages.push({ role: "assistant", content: replyText });
             
             streamMarkdown(bubble, replyText);
 
@@ -528,7 +522,7 @@ function ensureSessionExists(id) {
                 lucide.createIcons(); 
                 scrollToBottom();
                 
-                // Track typing stream frames into storage mapping variables
+                // Track typing stream frames into storage mapping variables dynamically
                 syncCurrentSessionToCache();
                 
                 setTimeout(type, speed);
