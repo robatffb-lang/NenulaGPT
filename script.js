@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     // --- State Machine Configuration Management Engine ---
     let currentModel = "flash-x";
-    let isPremium = false;
+    let isPremium = true; // Hardcoded true to blow away the annoying ad modal forever
     let flashLimit = 5; 
     let proLimit = 3;
 
@@ -46,7 +46,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="item-details">
                             <div class="item-title-row">
                                 <span class="item-title">Flash</span>
-                                <span class="item-badge" id="dropdownFlashCount">${flashLimit} left</span>
+                                <span class="item-badge" id="dropdownFlashCount">Premium</span>
                             </div>
                             <span class="item-desc">Thinks for a moment, fast response.</span>
                         </div>
@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="item-details">
                             <div class="item-title-row">
                                 <span class="item-title">Pro</span>
-                                <span class="item-badge" id="dropdownProCount">${proLimit} left</span>
+                                <span class="item-badge" id="dropdownProCount">Premium</span>
                             </div>
                             <span class="item-desc">Deep logical reasoning pipelines.</span>
                         </div>
@@ -67,20 +67,6 @@ document.addEventListener("DOMContentLoaded", () => {
         `;
         inputForm.insertAdjacentHTML("afterbegin", chooserHTML);
     }
-
-    // Inject Premium Upgrade Layout Interceptor
-    const modalHTML = `
-        <div class="premium-overlay" id="premiumModal">
-            <div class="premium-card">
-                <div class="premium-icon-wrap"><i data-lucide="crown" style="width:28px;height:28px;"></i></div>
-                <h2>Nebula Premium Required</h2>
-                <p>You've triggered a rate-limit cooldown on standard compute models. Upgrade to Premium to completely bypass limitations and execute deep logic pipelines instantly.</p>
-                <button class="upgrade-btn" id="simulatePurchaseBtn">Unlock Everything — $10/mo</button>
-                <button class="close-modal-btn" id="closeModalBtn">Keep Using Flash-X</button>
-            </div>
-        </div>
-    `;
-    document.body.insertAdjacentHTML("beforeend", modalHTML);
 
     lucide.createIcons();
 
@@ -92,14 +78,15 @@ document.addEventListener("DOMContentLoaded", () => {
     
     const chooserTrigger = document.getElementById("chooserTrigger");
     const modelDropdown = document.getElementById("modelDropdown");
-    const premiumModal = document.getElementById("premiumModal");
 
     // Toggle Dropdown Menu Visibility Layout Logic
-    chooserTrigger.addEventListener("click", (e) => {
-        e.stopPropagation();
-        chooserTrigger.classList.toggle("open");
-        modelDropdown.classList.toggle("show");
-    });
+    if (chooserTrigger) {
+        chooserTrigger.addEventListener("click", (e) => {
+            e.stopPropagation();
+            chooserTrigger.classList.toggle("open");
+            modelDropdown.classList.toggle("show");
+        });
+    }
 
     // Close Dropdown upon Outside Click Context Interception
     document.addEventListener("click", () => {
@@ -112,58 +99,29 @@ document.addEventListener("DOMContentLoaded", () => {
     // Sync state data across visual badge systems
     function updateDropdownUI() {
         const labels = { "flash-x": "⚡ Flash-X", "flash": "✨ Flash", "pro": "🔮 Pro" };
-        document.getElementById("activeModelLabel").innerText = labels[currentModel];
+        const labelEl = document.getElementById("activeModelLabel");
+        if (labelEl) labelEl.innerText = labels[currentModel];
 
         document.querySelectorAll(".dropdown-item").forEach(item => {
             const m = item.getAttribute("data-model");
             item.classList.remove("active", "disabled");
-            
             if (m === currentModel) item.classList.add("active");
-            
-            if (!isPremium) {
-                if (m === "flash" && flashLimit <= 0) item.classList.add("disabled");
-                if (m === "pro" && proLimit <= 0) item.classList.add("disabled");
-            }
         });
-
-        document.getElementById("dropdownFlashCount").innerText = isPremium ? "Premium" : `${flashLimit} left`;
-        document.getElementById("dropdownProCount").innerText = isPremium ? "Premium" : `${proLimit} left`;
     }
 
     // Dropdown Item Evaluation Strategy Selector Loop
-    modelDropdown.addEventListener("click", (e) => {
-        const item = e.target.closest(".dropdown-item");
-        if (!item) return;
-        e.stopPropagation();
+    if (modelDropdown) {
+        modelDropdown.addEventListener("click", (e) => {
+            const item = e.target.closest(".dropdown-item");
+            if (!item) return;
+            e.stopPropagation();
 
-        const targetModel = item.getAttribute("data-model");
-
-        if (!isPremium) {
-            if ((targetModel === "flash" && flashLimit <= 0) || (targetModel === "pro" && proLimit <= 0)) {
-                premiumModal.classList.add("show");
-                chooserTrigger.classList.remove("open");
-                modelDropdown.classList.remove("show");
-                return;
-            }
-        }
-
-        currentModel = targetModel;
-        updateDropdownUI();
-        chooserTrigger.classList.remove("open");
-        modelDropdown.classList.remove("show");
-    });
-
-    // Premium Purchase Simulation Layer Execution
-    document.getElementById("simulatePurchaseBtn").addEventListener("click", () => {
-        isPremium = true;
-        updateDropdownUI();
-        premiumModal.classList.remove("show");
-        alert("✨ Nebula Premium Activated! Limit thresholds removed permanently.");
-    });
-
-    document.getElementById("closeModalBtn").addEventListener("click", () => {
-        premiumModal.classList.remove("show");
-    });
+            currentModel = item.getAttribute("data-model");
+            updateDropdownUI();
+            chooserTrigger.classList.remove("open");
+            modelDropdown.classList.remove("show");
+        });
+    }
 
     // Strict pixel matching scaling layout execution loop (Matches updated css 32px height)
     function adjustInputHeight() {
@@ -175,16 +133,17 @@ document.addEventListener("DOMContentLoaded", () => {
         sendBtn.disabled = userInput.value.trim() === "";
     }
 
-    userInput.addEventListener("input", adjustInputHeight);
-
-    userInput.addEventListener("keydown", (e) => {
-        if (e.key === "Enter" && !e.shiftKey) {
-            e.preventDefault(); 
-            if (userInput.value.trim() !== "") {
-                chatForm.requestSubmit(); 
+    if (userInput) {
+        userInput.addEventListener("input", adjustInputHeight);
+        userInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault(); 
+                if (userInput.value.trim() !== "") {
+                    chatForm.requestSubmit(); 
+                }
             }
-        }
-    });
+        });
+    }
 
     // --- Advanced Engine History Session Synchronization Hooks ---
     function syncCurrentSessionToCache() {
@@ -249,55 +208,59 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     // New Chat Action Route Implementation Execution Handler
-    newChatBtn.addEventListener("click", () => {
-        const hasMessages = messagesContainer.querySelector(".message-wrapper");
-        if (hasMessages) {
-            syncCurrentSessionToCache();
-        }
+    if (newChatBtn) {
+        newChatBtn.addEventListener("click", () => {
+            const hasMessages = messagesContainer.querySelector(".message-wrapper");
+            if (hasMessages) {
+                syncCurrentSessionToCache();
+            }
 
-        document.querySelectorAll(".history-item").forEach(token => token.classList.remove("active"));
-        
-        // Factory fresh context state parameters mapping
-        currentSessionId = "session_" + Date.now();
-        ensureSessionExists(currentSessionId);
-        
-        messagesContainer.innerHTML = `
-            <div class="welcome-screen" id="welcomeScreen">
-                <div class="welcome-icon"><i data-lucide="zap" style="width:36px;height:36px;"></i></div>
-                <h1>What can I help with?</h1>
-                <p>Select a computational model engine and drop your code architectures or requirements below to begin debugging.</p>
-            </div>
-        `;
-        
-        lucide.createIcons();
-        userInput.value = "";
-        userInput.style.height = "32px";
-        sendBtn.disabled = true;
-    });
+            document.querySelectorAll(".history-item").forEach(token => token.classList.remove("active"));
+            
+            // Factory fresh context state parameters mapping
+            currentSessionId = "session_" + Date.now();
+            ensureSessionExists(currentSessionId);
+            
+            messagesContainer.innerHTML = `
+                <div class="welcome-screen" id="welcomeScreen">
+                    <div class="welcome-icon"><i data-lucide="zap" style="width:36px;height:36px;"></i></div>
+                    <h1>What can I help with?</h1>
+                    <p>Select a computational model engine and drop your code architectures or requirements below to begin debugging.</p>
+                </div>
+            `;
+            
+            lucide.createIcons();
+            userInput.value = "";
+            userInput.style.height = "32px";
+            sendBtn.disabled = true;
+        });
+    }
 
-    chatForm.addEventListener("submit", (e) => {
-        e.preventDefault();
-        const queryText = userInput.value.trim();
-        if (!queryText) return;
+    if (chatForm) {
+        chatForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const queryText = userInput.value.trim();
+            if (!queryText) return;
 
-        const welcomeScreen = document.getElementById("welcomeScreen");
-        if (welcomeScreen) welcomeScreen.remove();
+            const welcomeScreen = document.getElementById("welcomeScreen");
+            if (welcomeScreen) welcomeScreen.remove();
 
-        appendMessage(queryText, "user");
-        
-        // Lock user query into the session array pipeline memory
-        ensureSessionExists(currentSessionId);
-        chatSessions[currentSessionId].apiMessages.push({ role: "user", content: queryText });
+            appendMessage(queryText, "user");
+            
+            // Lock user query into the session array pipeline memory
+            ensureSessionExists(currentSessionId);
+            chatSessions[currentSessionId].apiMessages.push({ role: "user", content: queryText });
 
-        // Intercept query state pipeline immediately to ensure sidebar layout binding rules mapping
-        handleSidebarHistoryRegistration(queryText);
+            // Intercept query state pipeline immediately to ensure sidebar layout binding rules mapping
+            handleSidebarHistoryRegistration(queryText);
 
-        userInput.value = "";
-        userInput.style.height = "32px"; 
-        sendBtn.disabled = true;
+            userInput.value = "";
+            userInput.style.height = "32px"; 
+            sendBtn.disabled = true;
 
-        fetchLiveAI(queryText);
-    });
+            fetchLiveAI(queryText);
+        });
+    }
 
     function appendMessage(text, sender) {
         const msgWrapper = document.createElement("div");
@@ -320,69 +283,75 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function fetchLiveAI(userPrompt) {
-    const aiWrapper = appendMessage("", "ai");
-    const bubble = aiWrapper.querySelector(".message-bubble");
-    
-    if (!isPremium) {
-        if (currentModel === "flash") flashLimit--;
-        if (currentModel === "pro") proLimit--;
-    }
+        const aiWrapper = appendMessage("", "ai");
+        const bubble = aiWrapper.querySelector(".message-bubble");
 
-    // Swapped standard setTimeout for background-safe visibility listeners
-    if (currentModel === "flash") {
-        bubble.innerHTML = `<div class="thinking-container"><div class="thinking-spinner"></div>Thinking...</div>`;
-        await waitWithVisibilityCheck(2500); 
-        bubble.innerHTML = "";
-    } else if (currentModel === "pro") {
-        bubble.innerHTML = `<div class="thinking-container"><div class="thinking-spinner"></div>Thinking deeply...</div>`;
-        await waitWithVisibilityCheck(5000); 
-        bubble.innerHTML = "";
-    }
-
-    const typingIndicator = document.createElement("div");
-    typingIndicator.classList.add("typing-indicator");
-    typingIndicator.innerHTML = "<span></span><span></span><span></span>";
-    bubble.appendChild(typingIndicator);
-
-    let currentSystemContent = 'You are an advanced, helpful AI assistant. If the user asks a technical or coding question, act as an expert coding engine and always use markdown codeblocks with the language name.';
-    if (currentModel === "pro") {
-        currentSystemContent += ' For technical queries, provide extensive, deep architecture details, edge-case evaluations, and deep code comments. If the user is just greeting you or making small talk, respond conversationally, naturally, and concisely without generating unprompted code structures.';
-    }
-
-    ensureSessionExists(currentSessionId);
-    const payloadMessages = [
-        { role: 'system', content: currentSystemContent },
-        ...chatSessions[currentSessionId].apiMessages
-    ];
-
-    try {
-        const response = await fetch('https://text.pollinations.ai/', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ messages: payloadMessages })
-        });
-
-        if (!response.ok) throw new Error("API Pipeline Exception");
-
-        const replyText = await response.text();
-        typingIndicator.remove();
-        
-        chatSessions[currentSessionId].apiMessages.push({ role: "assistant", content: replyText });
-        
-        streamMarkdown(bubble, replyText);
-
-        if (!isPremium && ((currentModel === "flash" && flashLimit <= 0) || (currentModel === "pro" && proLimit <= 0))) {
-            currentModel = "flash-x";
+        // Modern time-bypassing background thinking configurations to survive tab freezes
+        if (currentModel !== "flash-x") {
+            const label = currentModel === "pro" ? "Thinking deeply..." : "Thinking...";
+            let delayMs = currentModel === "pro" ? 5000 : 2500;
+            
+            bubble.innerHTML = `<div class="thinking-container"><div class="thinking-spinner"></div>${label}</div>`;
+            
+            // Bypass thinking timers completely if user immediately focuses off-tab
+            if (!document.hidden) {
+                await new Promise(resolve => {
+                    const timer = setTimeout(resolve, delayMs);
+                    const skipThrottling = () => {
+                        if (document.hidden) {
+                            clearTimeout(timer);
+                            document.removeEventListener("visibilitychange", skipThrottling);
+                            resolve();
+                        }
+                    };
+                    document.addEventListener("visibilitychange", skipThrottling);
+                });
+            }
+            bubble.innerHTML = "";
         }
-        updateDropdownUI();
 
-    } catch (error) {
-        console.error(error);
-        typingIndicator.remove();
-        bubble.innerHTML = `<span style="color: #ef4444;">Network connection error. Check internet connection and retry.</span>`;
-        syncCurrentSessionToCache();
+        const typingIndicator = document.createElement("div");
+        typingIndicator.classList.add("typing-indicator");
+        typingIndicator.innerHTML = "<span></span><span></span><span></span>";
+        bubble.appendChild(typingIndicator);
+
+        let currentSystemContent = 'You are an advanced, helpful AI assistant. If the user asks a technical or coding question, act as an expert coding engine and always use markdown codeblocks with the language name.';
+        if (currentModel === "pro") {
+            currentSystemContent += ' For technical queries, provide extensive, deep architecture details, edge-case evaluations, and deep code comments. If the user is just greeting you or making small talk, respond conversationally, naturally, and concisely without generating unprompted code structures.';
+        }
+
+        // Combine system configuration maps with dynamic context thread memory paths
+        ensureSessionExists(currentSessionId);
+        const payloadMessages = [
+            { role: 'system', content: currentSystemContent },
+            ...chatSessions[currentSessionId].apiMessages
+        ];
+
+        try {
+            const response = await fetch('https://text.pollinations.ai/', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ messages: payloadMessages })
+            });
+
+            if (!response.ok) throw new Error("API Pipeline Exception");
+
+            const replyText = await response.text();
+            typingIndicator.remove();
+            
+            // Log assistant answer array properties into session state indices
+            chatSessions[currentSessionId].apiMessages.push({ role: "assistant", content: replyText });
+            
+            streamMarkdown(bubble, replyText);
+            updateDropdownUI();
+
+        } catch (error) {
+            console.error(error);
+            typingIndicator.remove();
+            bubble.innerHTML = `<span style="color: #ef4444;">Network connection error. Check internet connection and retry.</span>`;
+            syncCurrentSessionToCache();
+        }
     }
-}
 
     function highlightCode(code, lang) {
         lang = lang.toLowerCase();
@@ -508,104 +477,62 @@ document.addEventListener("DOMContentLoaded", () => {
         return htmlResult.join('');
     }
 
+    // High-performance background tab resilient Delta-Time streaming engine
     function streamMarkdown(targetElement, fullString) {
-        let currentIndex = 0;
-        let runningText = "";
-        const speed = 2; 
-        let loopTimer = null;
-
+        const startTime = Date.now();
+        const charsPerMs = 0.55; // Calibrated processing speed mechanics
+        
         function type() {
-            // Instantly break out if the page is hidden
-            if (document.hidden) {
-                finishInstantly();
-                return;
-            }
-
-            if (currentIndex < fullString.length) {
-                runningText += fullString.charAt(currentIndex);
-                targetElement.innerHTML = parseMarkdown(runningText);
-                currentIndex++;
-                lucide.createIcons(); 
-                scrollToBottom();
-                syncCurrentSessionToCache();
-                
-                loopTimer = setTimeout(type, speed);
-            } else {
-                document.removeEventListener("visibilitychange", visibilityHandler);
-            }
-        }
-
-        function finishInstantly() {
-            if (loopTimer) clearTimeout(loopTimer);
-            targetElement.innerHTML = parseMarkdown(fullString);
-            lucide.createIcons();
+            // Calculate absolute wall-clock intervals elapsed since initialization frame
+            const elapsed = Date.now() - startTime;
+            
+            // Map exact positioning parameters against actual time loops to balance out Chrome throttling loops
+            const currentIndex = Math.min(fullString.length, Math.floor(elapsed * charsPerMs));
+            const runningText = fullString.substring(0, currentIndex);
+            
+            targetElement.innerHTML = parseMarkdown(runningText);
+            
+            lucide.createIcons(); 
             scrollToBottom();
             syncCurrentSessionToCache();
-            document.removeEventListener("visibilitychange", visibilityHandler);
-        }
-
-        function visibilityHandler() {
-            if (document.hidden) {
-                finishInstantly();
+            
+            if (currentIndex < fullString.length) {
+                setTimeout(type, 2);
             }
         }
-
-        document.addEventListener("visibilitychange", visibilityHandler);
-
-        // Immediate intercept check if tab is already hidden when network finishes
-        if (document.hidden) {
-            finishInstantly();
-        } else {
-            type();
-        }
+        
+        type();
     }
 
-    messagesContainer.addEventListener("click", (e) => {
-        const copyBtn = e.target.closest(".script-copy-btn");
-        if (!copyBtn) return;
+    if (messagesContainer) {
+        messagesContainer.addEventListener("click", (e) => {
+            const copyBtn = e.target.closest(".script-copy-btn");
+            if (!copyBtn) return;
 
-        const container = copyBtn.closest(".script-container");
-        const codeElement = container.querySelector(".script-content code");
-        
-        if (codeElement) {
-            const textToCopy = codeElement.innerText;
+            const container = copyBtn.closest(".script-container");
+            const codeElement = container.querySelector(".script-content code");
             
-            navigator.clipboard.writeText(textToCopy).then(() => {
-                copyBtn.innerHTML = `<i data-lucide="check" style="width:14px;height:14px;"></i> Copied!`;
-                copyBtn.classList.add("copied");
-                lucide.createIcons();
-
-                setTimeout(() => {
-                    copyBtn.innerHTML = `<i data-lucide="copy" style="width:14px;height:14px;"></i> Copy`;
-                    copyBtn.classList.remove("copied");
+            if (codeElement) {
+                const textToCopy = codeElement.innerText;
+                
+                navigator.clipboard.writeText(textToCopy).then(() => {
+                    copyBtn.innerHTML = `<i data-lucide="check" style="width:14px;height:14px;"></i> Copied!`;
+                    copyBtn.classList.add("copied");
                     lucide.createIcons();
-                }, 2000);
-            }).catch(err => console.error("Clipboard access denied: ", err));
-        }
-    });
+
+                    setTimeout(() => {
+                        copyBtn.innerHTML = `<i data-lucide="copy" style="width:14px;height:14px;"></i> Copy`;
+                        copyBtn.classList.remove("copied");
+                        lucide.createIcons();
+                    }, 2000);
+                }).catch(err => console.error("Clipboard access denied: ", err));
+            }
+        });
+    }
 
     function scrollToBottom() {
-        messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: "smooth" });
+        if (messagesContainer) {
+            messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: "smooth" });
+        }
     }
 });
-
-// Smart timer helper that instantly resolves if you switch tabs to prevent Chrome background freezing
-function waitWithVisibilityCheck(ms) {
-    return new Promise(resolve => {
-        if (document.hidden) return resolve();
-        
-        const timer = setTimeout(() => {
-            document.removeEventListener("visibilitychange", checkVisibility);
-            resolve();
-        }, ms);
-        
-        function checkVisibility() {
-            if (document.hidden) {
-                clearTimeout(timer);
-                document.removeEventListener("visibilitychange", checkVisibility);
-                resolve();
-            }
-        }
-        document.addEventListener("visibilitychange", checkVisibility);
-    });
-}
