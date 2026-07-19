@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Strict input scaling calculation logic
+    // Strict input scaling calculation logic matching 32px standard layout
     function adjustInputHeight() {
         userInput.style.height = "32px"; 
         const scrollHeight = userInput.scrollHeight;
@@ -314,16 +314,16 @@ document.addEventListener("DOMContentLoaded", () => {
         ensureSessionExists(currentSessionId);
         
         // --- ADVANCED PAYLOAD COMPRESSOR ENGINE ---
-        // Dynamically budgets character counts to protect the free tier pipeline from crashing
+        // Budgets character strings dynamically to stop large histories from choking the server
         let recentHistory = [];
         let totalChars = 0;
-        const maxChars = 3500; // Absolute safety ceiling threshold
+        const maxChars = 3500; // Calibrated safe payload size limit
         const historyArray = chatSessions[currentSessionId].apiMessages;
         
         for (let i = historyArray.length - 1; i >= 0; i--) {
             let msgContent = historyArray[i].content;
             
-            // If an individual code response is massive, slice it for the API call payload only
+            // If an individual code block response is monstrous, trim it for network transmission stability
             if (msgContent.length > 2000) {
                 msgContent = msgContent.substring(0, 2000) + "\n\n[...System: Context truncated to save payload overhead...]";
             }
@@ -341,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ...recentHistory
         ];
 
-        // Auto-Retry Logic Engine
+        // --- AUTO-RETRY LOGIC ENGINE ---
         let attempts = 0;
         let success = false;
         let replyText = "";
@@ -461,7 +461,8 @@ document.addEventListener("DOMContentLoaded", () => {
     function parseMarkdown(text) {
         let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         
-        // Auto-close open codeblocks if generation truncates early
+        // --- AUTO-CLOSE BLOCK ---
+        // Checks backtick uniformity and auto-appends syntax terminations if truncated mid-generation
         const codeBlockCount = (escaped.match(/```/g) || []).length;
         if (codeBlockCount % 2 !== 0) escaped += "\n```"; 
 
