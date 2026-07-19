@@ -320,35 +320,68 @@ document.addEventListener("DOMContentLoaded", () => {
             currentSystemContent += ' For technical queries, provide extensive, deep architecture details, edge-case evaluations, and deep code comments. If the user is just greeting you or making small talk, respond conversationally, naturally, and concisely without generating unprompted code structures.';
         }
 
-        // Combine system configuration maps with dynamic context thread memory paths
         ensureSessionExists(currentSessionId);
         
-        // LIMIT HISTORY BLOCK: Slices context array down to the last 6 messages to prevent network cutoff limits
-        const recentHistory = chatSessions[currentSessionId].apiMessages.slice(-6);
+        // SAFE CHAR LIMITER: Counts characters backwards to prevent huge scripts from crashing the server
+        let recentHistory = [];
+        let totalChars = 0;
+        const maxChars = 7000; // Calibrated safe ceiling for free tier payloads
+        const historyArray = chatSessions[currentSessionId].apiMessages;
+        
+        for (let i = historyArray.length - 1; i >= 0; i--) {
+            if (totalChars + historyArray[i].content.length > maxChars) {
+                // Keep at least the immediate last message if it's monstrous
+                if (recentHistory.length === 0) recentHistory.unshift(historyArray[i]);
+                break;
+            }
+            recentHistory.unshift(historyArray[i]);
+            totalChars += historyArray[i].content.length;
+        }
         
         const payloadMessages = [
             { role: 'system', content: currentSystemContent },
             ...recentHistory
         ];
 
-        try {
-            const response = await fetch('https://text.pollinations.ai/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: payloadMessages })
-            });
+        // AUTO-RETRY ENGINE: Tries up to 2 times automatically if a network packet drops
+        let attempts = 0;
+        let success = false;
+        let replyText = "";
 
-            if (!response.ok) throw new Error("API Pipeline Exception");
+        while (attempts < 2 && !success) {
+            try {
+                attempts++;
+                const response = await fetch('https://text.pollinations.ai/', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ messages: payloadMessages })
+                });
 
-            const replyText = await response.text();
-            typingIndicator.remove();
-            
-            // Log assistant answer array properties into session state indices
-            chatSessions[currentSessionId].apiMessages.push({ role: "assistant", content: replyText });
-            
-            streamMarkdown(bubble, replyText);
-            updateDropdownUI();
+                if (!response.ok) throw new Error("API Pipeline Exception");
 
+                replyText = await response.text();
+                success = true;
+            } catch (error) {
+                if (attempts >= 2) {
+                    console.error(error);
+                    typingIndicator.remove();
+                    bubble.innerHTML = `<span style="color: #ef4444;">Server overloaded. Click "New Chat" or shorten your request to try again.</span>`;
+                    syncCurrentSessionToCache();
+                    return; 
+                }
+                // Wait 1 second before executing automatic recovery retry
+                await new Promise(r => setTimeout(r, 1000));
+            }
+        }
+
+        typingIndicator.remove();
+        
+        // Log assistant answer array properties into session state indices
+        chatSessions[currentSessionId].apiMessages.push({ role: "assistant", content: replyText });
+        
+        streamMarkdown(bubble, replyText);
+        updateDropdownUI();
+    }
         } catch (error) {
             console.error(error);
             typingIndicator.remove();
