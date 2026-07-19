@@ -6,8 +6,15 @@ document.addEventListener("DOMContentLoaded", () => {
     let proLimit = 35;
 
     // --- Dynamic Chat History Management States ---
-    let chatSessions = {}; // Key-value index registry tracking -> { sessionId: innerHTML }
-    let currentSessionId = "session_" + Date.now();
+    let chatSessions = {}; // Will hold data objects -> { html: string, apiMessages: Array }
+let currentSessionId = "session_" + Date.now();
+
+// Safety factory helper to ensure data objects exist before writing to them
+function ensureSessionExists(id) {
+    if (!chatSessions[id]) {
+        chatSessions[id] = { html: "", apiMessages: [] };
+    }
+}
 
     // Inject Image-2 Dropdown Chooser Layout Context Components
     const inputForm = document.querySelector(".input-form");
