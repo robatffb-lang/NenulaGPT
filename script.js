@@ -1,27 +1,35 @@
 document.addEventListener("DOMContentLoaded", () => {
     // --- State Machine Configuration Management Engine ---
     let currentModel = "flash-x";
-    let isPremium = true; // Hardcoded true to remove the ad modal permanently
+    let isPremium = true; 
     let flashLimit = 5; 
     let proLimit = 3;
-    let isGenerating = false; // GLOBAL GUARD: Prevents overlapping request lockups
+    let isGenerating = false; // Guard framework to block overlapping requests
 
     // --- Dynamic Chat History Management States ---
-    let chatSessions = {}; // Key-value index registry tracking -> { sessionId: { html: string, apiMessages: Array } }
+    let chatSessions = {}; 
     let currentSessionId = "session_" + Date.now();
 
-    // Safety factory helper to ensure data objects exist before reading/writing
     function ensureSessionExists(id) {
         if (!chatSessions[id]) {
             chatSessions[id] = { html: "", apiMessages: [] };
         }
     }
-    
-    // Initialize the first session immediately
     ensureSessionExists(currentSessionId);
 
-    // Inject Image-2 Dropdown Chooser Layout Context Components
-    const inputForm = document.querySelector(".input-form");
+    // SAFE ICON ENGINE: Prevents script death if Lucide library script tag is missing in HTML
+    function safeCreateIcons() {
+        try {
+            if (typeof lucide !== 'undefined' && lucide.createIcons) {
+                lucide.createIcons();
+            }
+        } catch (e) {
+            console.warn("Lucide icons unavailable; falling back gracefully.");
+        }
+    }
+
+    // SMART INJECTOR: Scans multiple common class/ID selectors to find the input bar wrapper cleanly
+    const inputForm = document.querySelector(".input-form") || document.getElementById("chatForm") || document.querySelector(".input-container");
     if (inputForm) {
         const chooserHTML = `
             <div class="model-chooser-context">
@@ -47,7 +55,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="item-details">
                             <div class="item-title-row">
                                 <span class="item-title">Flash</span>
-                                <span class="item-badge" id="dropdownFlashCount">Premium</span>
+                                <span class="item-badge">Premium</span>
                             </div>
                             <span class="item-desc">Thinks for a moment, fast response.</span>
                         </div>
@@ -58,7 +66,7 @@ document.addEventListener("DOMContentLoaded", () => {
                         <div class="item-details">
                             <div class="item-title-row">
                                 <span class="item-title">Pro</span>
-                                <span class="item-badge" id="dropdownProCount">Premium</span>
+                                <span class="item-badge">Premium</span>
                             </div>
                             <span class="item-desc">Deep logical reasoning pipelines.</span>
                         </div>
@@ -69,8 +77,9 @@ document.addEventListener("DOMContentLoaded", () => {
         inputForm.insertAdjacentHTML("afterbegin", chooserHTML);
     }
 
-    lucide.createIcons();
+    safeCreateIcons();
 
+    // DOM References - Covered with explicit safety fallback checks
     const chatForm = document.getElementById("chatForm");
     const userInput = document.getElementById("userInput");
     const sendBtn = document.getElementById("sendBtn");
@@ -80,17 +89,15 @@ document.addEventListener("DOMContentLoaded", () => {
     const chooserTrigger = document.getElementById("chooserTrigger");
     const modelDropdown = document.getElementById("modelDropdown");
 
-    // Toggle Dropdown Menu Visibility Layout Logic
-    if (chooserTrigger) {
+    if (chooserTrigger && modelDropdown) {
         chooserTrigger.addEventListener("click", (e) => {
             e.stopPropagation();
-            if (isGenerating) return; // Block model changes mid-generation
+            if (isGenerating) return; 
             chooserTrigger.classList.toggle("open");
             modelDropdown.classList.toggle("show");
         });
     }
 
-    // Close Dropdown upon Outside Click Context Interception
     document.addEventListener("click", () => {
         if (chooserTrigger && modelDropdown) {
             chooserTrigger.classList.remove("open");
@@ -98,21 +105,19 @@ document.addEventListener("DOMContentLoaded", () => {
         }
     });
 
-    // Sync state data across visual badge systems
     function updateDropdownUI() {
         const labels = { "flash-x": "⚡ Flash-X", "flash": "✨ Flash", "pro": "🔮 Pro" };
         const labelEl = document.getElementById("activeModelLabel");
-        if (labelEl) labelEl.innerText = labels[currentModel];
+        if (labelEl) labelEl.innerText = labels[currentModel] || "⚡ Flash-X";
 
         document.querySelectorAll(".dropdown-item").forEach(item => {
             const m = item.getAttribute("data-model");
-            item.classList.remove("active", "disabled");
+            item.classList.remove("active");
             if (m === currentModel) item.classList.add("active");
         });
     }
 
-    // Dropdown Item Evaluation Strategy Selector Loop
-    if (modelDropdown) {
+    if (modelDropdown && chooserTrigger) {
         modelDropdown.addEventListener("click", (e) => {
             const item = e.target.closest(".dropdown-item");
             if (!item) return;
@@ -125,15 +130,14 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Strict input scaling calculation logic matching 32px standard layout
     function adjustInputHeight() {
-        if (isGenerating) return; // Do not alter UI state parameters if engine is typing
+        if (!userInput || isGenerating) return;
         userInput.style.height = "32px"; 
         const scrollHeight = userInput.scrollHeight;
         if (scrollHeight > 32) {
             userInput.style.height = `${scrollHeight}px`;
         }
-        sendBtn.disabled = userInput.value.trim() === "";
+        if (sendBtn) sendBtn.disabled = userInput.value.trim() === "";
     }
 
     if (userInput) {
@@ -141,15 +145,15 @@ document.addEventListener("DOMContentLoaded", () => {
         userInput.addEventListener("keydown", (e) => {
             if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault(); 
-                if (userInput.value.trim() !== "" && !isGenerating) {
+                if (userInput.value.trim() !== "" && !isGenerating && chatForm) {
                     chatForm.requestSubmit(); 
                 }
             }
         });
     }
 
-    // --- Advanced Engine History Session Synchronization Hooks ---
     function syncCurrentSessionToCache() {
+        if (!messagesContainer) return;
         ensureSessionExists(currentSessionId);
         const structuralVerification = messagesContainer.querySelector(".message-wrapper");
         if (structuralVerification) {
@@ -179,10 +183,10 @@ document.addEventListener("DOMContentLoaded", () => {
                 `;
                 
                 sidebarHistoryWrapper.prepend(historyToken);
-                lucide.createIcons();
+                safeCreateIcons();
 
                 historyToken.addEventListener("click", () => {
-                    if (isGenerating) return; // Block session switching mid-generation
+                    if (isGenerating) return; 
                     switchActiveSessionContext(historyToken.getAttribute("data-session-id"));
                 });
             }
@@ -191,6 +195,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function switchActiveSessionContext(targetSessionId) {
+        if (!messagesContainer) return;
         syncCurrentSessionToCache();
         currentSessionId = targetSessionId;
         ensureSessionExists(currentSessionId);
@@ -204,57 +209,58 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
 
-        lucide.createIcons();
+        safeCreateIcons();
         scrollToBottom();
     }
 
     if (newChatBtn) {
         newChatBtn.addEventListener("click", () => {
-            // Force reset state guard mechanics on hard reset command execution
             isGenerating = false;
-            userInput.disabled = false;
+            if (userInput) userInput.disabled = false;
 
-            const hasMessages = messagesContainer.querySelector(".message-wrapper");
-            if (hasMessages) {
-                syncCurrentSessionToCache();
+            if (messagesContainer) {
+                const hasMessages = messagesContainer.querySelector(".message-wrapper");
+                if (hasMessages) syncCurrentSessionToCache();
+
+                document.querySelectorAll(".history-item").forEach(token => token.classList.remove("active"));
+                
+                currentSessionId = "session_" + Date.now();
+                ensureSessionExists(currentSessionId);
+                
+                messagesContainer.innerHTML = `
+                    <div class="welcome-screen" id="welcomeScreen">
+                        <div class="welcome-icon"><i data-lucide="zap" style="width:36px;height:36px;"></i></div>
+                        <h1>What can I help with?</h1>
+                        <p>Select a computational model engine and drop your code architectures or requirements below to begin debugging.</p>
+                    </div>
+                `;
             }
-
-            document.querySelectorAll(".history-item").forEach(token => token.classList.remove("active"));
             
-            currentSessionId = "session_" + Date.now();
-            ensureSessionExists(currentSessionId);
-            
-            messagesContainer.innerHTML = `
-                <div class="welcome-screen" id="welcomeScreen">
-                    <div class="welcome-icon"><i data-lucide="zap" style="width:36px;height:36px;"></i></div>
-                    <h1>What can I help with?</h1>
-                    <p>Select a computational model engine and drop your code architectures or requirements below to begin debugging.</p>
-                </div>
-            `;
-            
-            lucide.createIcons();
-            userInput.value = "";
-            userInput.style.height = "32px";
-            sendBtn.disabled = true;
-            userInput.focus();
+            safeCreateIcons();
+            if (userInput) {
+                userInput.value = "";
+                userInput.style.height = "32px";
+                userInput.focus();
+            }
+            if (sendBtn) sendBtn.disabled = true;
         });
     }
 
     if (chatForm) {
         chatForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            if (isGenerating) return; // Hard structural interception to stop overlapping threads
+            if (isGenerating || !userInput) return;
 
             const queryText = userInput.value.trim();
             if (!queryText) return;
 
-            const welcomeScreen = document.getElementById("welcomeScreen");
+            // Sweeps out custom welcome wrappers cleanly by scanning IDs and classes
+            const welcomeScreen = document.getElementById("welcomeScreen") || document.querySelector(".welcome-screen");
             if (welcomeScreen) welcomeScreen.remove();
 
-            // Set systemic generation lock parameters
             isGenerating = true;
             userInput.disabled = true;
-            sendBtn.disabled = true;
+            if (sendBtn) sendBtn.disabled = true;
 
             appendMessage(queryText, "user");
             
@@ -271,6 +277,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function appendMessage(text, sender) {
+        if (!messagesContainer) return null;
         const msgWrapper = document.createElement("div");
         msgWrapper.classList.add("message-wrapper", sender);
 
@@ -285,13 +292,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }
 
         messagesContainer.appendChild(msgWrapper);
-        lucide.createIcons(); 
+        safeCreateIcons(); 
         scrollToBottom();
         return msgWrapper;
     }
 
     async function fetchLiveAI(userPrompt) {
         const aiWrapper = appendMessage("", "ai");
+        if (!aiWrapper) return;
         const bubble = aiWrapper.querySelector(".message-bubble");
 
         if (currentModel !== "flash-x") {
@@ -379,11 +387,12 @@ document.addEventListener("DOMContentLoaded", () => {
                     bubble.innerHTML = `<span style="color: #ef4444;">Server overloaded. Click "New Chat" to clear the stack and try again!</span>`;
                     syncCurrentSessionToCache();
                     
-                    // CRITICAL UNLOCK PATH: Restores controls if network completely drops
                     isGenerating = false;
-                    userInput.disabled = false;
+                    if (userInput) {
+                        userInput.disabled = false;
+                        userInput.focus();
+                    }
                     adjustInputHeight();
-                    userInput.focus();
                     return; 
                 }
                 await new Promise(r => setTimeout(r, 1000));
@@ -525,7 +534,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return htmlResult.join('');
     }
 
-    // High-performance background tab resilient Delta-Time streaming engine
     function streamMarkdown(targetElement, fullString) {
         const startTime = Date.now();
         const charsPerMs = 0.55; 
@@ -537,18 +545,19 @@ document.addEventListener("DOMContentLoaded", () => {
             
             targetElement.innerHTML = parseMarkdown(runningText);
             
-            lucide.createIcons(); 
+            safeCreateIcons(); 
             scrollToBottom();
             syncCurrentSessionToCache();
             
             if (currentIndex < fullString.length) {
                 setTimeout(type, 2);
             } else {
-                // CRITICAL SUCCESS UNLOCK PATH: AI finished printing -> Unlock input fields cleanly
                 isGenerating = false;
-                userInput.disabled = false;
+                if (userInput) {
+                    userInput.disabled = false;
+                    userInput.focus();
+                }
                 adjustInputHeight();
-                userInput.focus();
             }
         }
         
@@ -569,12 +578,12 @@ document.addEventListener("DOMContentLoaded", () => {
                 navigator.clipboard.writeText(textToCopy).then(() => {
                     copyBtn.innerHTML = `<i data-lucide="check" style="width:14px;height:14px;"></i> Copied!`;
                     copyBtn.classList.add("copied");
-                    lucide.createIcons();
+                    safeCreateIcons();
 
                     setTimeout(() => {
                         copyBtn.innerHTML = `<i data-lucide="copy" style="width:14px;height:14px;"></i> Copy`;
                         copyBtn.classList.remove("copied");
-                        lucide.createIcons();
+                        safeCreateIcons();
                     }, 2000);
                 }).catch(err => console.error("Clipboard access denied: ", err));
             }
