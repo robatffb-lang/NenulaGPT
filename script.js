@@ -320,70 +320,69 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     async function fetchLiveAI(userPrompt) {
-        const aiWrapper = appendMessage("", "ai");
-        const bubble = aiWrapper.querySelector(".message-bubble");
-        
-        if (!isPremium) {
-            if (currentModel === "flash") flashLimit--;
-            if (currentModel === "pro") proLimit--;
-        }
-
-        if (currentModel === "flash") {
-            bubble.innerHTML = `<div class="thinking-container"><div class="thinking-spinner"></div>Thinking...</div>`;
-            await new Promise(resolve => setTimeout(resolve, 2500)); 
-            bubble.innerHTML = "";
-        } else if (currentModel === "pro") {
-            bubble.innerHTML = `<div class="thinking-container"><div class="thinking-spinner"></div>Thinking deeply...</div>`;
-            await new Promise(resolve => setTimeout(resolve, 5000)); 
-            bubble.innerHTML = "";
-        }
-
-        const typingIndicator = document.createElement("div");
-        typingIndicator.classList.add("typing-indicator");
-        typingIndicator.innerHTML = "<span></span><span></span><span></span>";
-        bubble.appendChild(typingIndicator);
-
-        let currentSystemContent = 'You are an advanced, helpful AI assistant. If the user asks a technical or coding question, act as an expert coding engine and always use markdown codeblocks with the language name.';
-        if (currentModel === "pro") {
-            currentSystemContent += ' For technical queries, provide extensive, deep architecture details, edge-case evaluations, and deep code comments. If the user is just greeting you or making small talk, respond conversationally, naturally, and concisely without generating unprompted code structures.';
-        }
-
-        // Combine system configuration maps with dynamic context thread memory paths
-        ensureSessionExists(currentSessionId);
-        const payloadMessages = [
-            { role: 'system', content: currentSystemContent },
-            ...chatSessions[currentSessionId].apiMessages
-        ];
-
-        try {
-            const response = await fetch('https://text.pollinations.ai/', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ messages: payloadMessages })
-            });
-
-            if (!response.ok) throw new Error("API Pipeline Exception");
-
-            const replyText = await response.text();
-            typingIndicator.remove();
-            
-            // Log assistant answer array properties into session state indices
-            chatSessions[currentSessionId].apiMessages.push({ role: "assistant", content: replyText });
-            
-            streamMarkdown(bubble, replyText);
-
-            if (!isPremium && ((currentModel === "flash" && flashLimit <= 0) || (currentModel === "pro" && proLimit <= 0))) {
-                currentModel = "flash-x";
-            }
-            updateDropdownUI();
-
-        } catch (error) {
-            console.error(error);
-            typingIndicator.remove();
-            bubble.innerHTML = `<span style="color: #ef4444;">Network connection error. Check internet connection and retry.</span>`;
-            syncCurrentSessionToCache();
-        }
+    const aiWrapper = appendMessage("", "ai");
+    const bubble = aiWrapper.querySelector(".message-bubble");
+    
+    if (!isPremium) {
+        if (currentModel === "flash") flashLimit--;
+        if (currentModel === "pro") proLimit--;
     }
+
+    // Swapped standard setTimeout for background-safe visibility listeners
+    if (currentModel === "flash") {
+        bubble.innerHTML = `<div class="thinking-container"><div class="thinking-spinner"></div>Thinking...</div>`;
+        await waitWithVisibilityCheck(2500); 
+        bubble.innerHTML = "";
+    } else if (currentModel === "pro") {
+        bubble.innerHTML = `<div class="thinking-container"><div class="thinking-spinner"></div>Thinking deeply...</div>`;
+        await waitWithVisibilityCheck(5000); 
+        bubble.innerHTML = "";
+    }
+
+    const typingIndicator = document.createElement("div");
+    typingIndicator.classList.add("typing-indicator");
+    typingIndicator.innerHTML = "<span></span><span></span><span></span>";
+    bubble.appendChild(typingIndicator);
+
+    let currentSystemContent = 'You are an advanced, helpful AI assistant. If the user asks a technical or coding question, act as an expert coding engine and always use markdown codeblocks with the language name.';
+    if (currentModel === "pro") {
+        currentSystemContent += ' For technical queries, provide extensive, deep architecture details, edge-case evaluations, and deep code comments. If the user is just greeting you or making small talk, respond conversationally, naturally, and concisely without generating unprompted code structures.';
+    }
+
+    ensureSessionExists(currentSessionId);
+    const payloadMessages = [
+        { role: 'system', content: currentSystemContent },
+        ...chatSessions[currentSessionId].apiMessages
+    ];
+
+    try {
+        const response = await fetch('https://text.pollinations.ai/', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ messages: payloadMessages })
+        });
+
+        if (!response.ok) throw new Error("API Pipeline Exception");
+
+        const replyText = await response.text();
+        typingIndicator.remove();
+        
+        chatSessions[currentSessionId].apiMessages.push({ role: "assistant", content: replyText });
+        
+        streamMarkdown(bubble, replyText);
+
+        if (!isPremium && ((currentModel === "flash" && flashLimit <= 0) || (currentModel === "pro" && proLimit <= 0))) {
+            currentModel = "flash-x";
+        }
+        updateDropdownUI();
+
+    } catch (error) {
+        console.error(error);
+        typingIndicator.remove();
+        bubble.innerHTML = `<span style="color: #ef4444;">Network connection error. Check internet connection and retry.</span>`;
+        syncCurrentSessionToCache();
+    }
+}
 
     function highlightCode(code, lang) {
         lang = lang.toLowerCase();
@@ -513,9 +512,10 @@ document.addEventListener("DOMContentLoaded", () => {
         let currentIndex = 0;
         let runningText = "";
         const speed = 2; 
+        let loopTimer = null;
 
         function type() {
-            // Catch if the user switched tabs during the execution loop
+            // Instantly break out if the page is hidden
             if (document.hidden) {
                 finishInstantly();
                 return;
@@ -527,34 +527,37 @@ document.addEventListener("DOMContentLoaded", () => {
                 currentIndex++;
                 lucide.createIcons(); 
                 scrollToBottom();
-                
-                // Track typing stream frames into storage mapping variables dynamically
                 syncCurrentSessionToCache();
                 
-                setTimeout(type, speed);
+                loopTimer = setTimeout(type, speed);
+            } else {
+                document.removeEventListener("visibilitychange", visibilityHandler);
             }
         }
 
-        // Helper to instantly render the full payload if tab loses focus
         function finishInstantly() {
-            currentIndex = fullString.length; // Kills the active loop
+            if (loopTimer) clearTimeout(loopTimer);
             targetElement.innerHTML = parseMarkdown(fullString);
             lucide.createIcons();
             scrollToBottom();
             syncCurrentSessionToCache();
+            document.removeEventListener("visibilitychange", visibilityHandler);
         }
 
-        // Event listener to catch the exact moment the user switches tabs mid-generation
-        const visibilityHandler = () => {
-            if (document.hidden && currentIndex < fullString.length) {
+        function visibilityHandler() {
+            if (document.hidden) {
                 finishInstantly();
-                document.removeEventListener("visibilitychange", visibilityHandler);
             }
-        };
+        }
+
         document.addEventListener("visibilitychange", visibilityHandler);
 
-        // Fire off the initial typewriter frame
-        type();
+        // Immediate intercept check if tab is already hidden when network finishes
+        if (document.hidden) {
+            finishInstantly();
+        } else {
+            type();
+        }
     }
 
     messagesContainer.addEventListener("click", (e) => {
@@ -585,3 +588,24 @@ document.addEventListener("DOMContentLoaded", () => {
         messagesContainer.scrollTo({ top: messagesContainer.scrollHeight, behavior: "smooth" });
     }
 });
+
+// Smart timer helper that instantly resolves if you switch tabs to prevent Chrome background freezing
+function waitWithVisibilityCheck(ms) {
+    return new Promise(resolve => {
+        if (document.hidden) return resolve();
+        
+        const timer = setTimeout(() => {
+            document.removeEventListener("visibilitychange", checkVisibility);
+            resolve();
+        }, ms);
+        
+        function checkVisibility() {
+            if (document.hidden) {
+                clearTimeout(timer);
+                document.removeEventListener("visibilitychange", checkVisibility);
+                resolve();
+            }
+        }
+        document.addEventListener("visibilitychange", checkVisibility);
+    });
+}
