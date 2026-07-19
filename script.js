@@ -1,7 +1,7 @@
 document.addEventListener("DOMContentLoaded", () => {
     // --- State Machine Configuration Management Engine ---
     let currentModel = "flash-x";
-    let isPremium = true; // Hardcoded true to blow away the annoying ad modal forever
+    let isPremium = true; // Hardcoded true to remove the ad modal permanently
     let flashLimit = 5; 
     let proLimit = 3;
 
@@ -322,9 +322,13 @@ document.addEventListener("DOMContentLoaded", () => {
 
         // Combine system configuration maps with dynamic context thread memory paths
         ensureSessionExists(currentSessionId);
+        
+        // LIMIT HISTORY BLOCK: Slices context array down to the last 6 messages to prevent network cutoff limits
+        const recentHistory = chatSessions[currentSessionId].apiMessages.slice(-6);
+        
         const payloadMessages = [
             { role: 'system', content: currentSystemContent },
-            ...chatSessions[currentSessionId].apiMessages
+            ...recentHistory
         ];
 
         try {
@@ -435,6 +439,11 @@ document.addEventListener("DOMContentLoaded", () => {
 
     function parseMarkdown(text) {
         let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        
+        // AUTO-CLOSE BLOCK: Dynamically forces structural repair on truncated triple-backtick segments
+        const codeBlockCount = (escaped.match(/```/g) || []).length;
+        if (codeBlockCount % 2 !== 0) escaped += "\n```"; 
+
         let parts = escaped.split(/```/);
         let htmlResult = [];
 
