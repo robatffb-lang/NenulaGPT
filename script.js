@@ -515,6 +515,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const speed = 2; 
 
         function type() {
+            // Catch if the user switched tabs during the execution loop
+            if (document.hidden) {
+                finishInstantly();
+                return;
+            }
+
             if (currentIndex < fullString.length) {
                 runningText += fullString.charAt(currentIndex);
                 targetElement.innerHTML = parseMarkdown(runningText);
@@ -528,6 +534,26 @@ document.addEventListener("DOMContentLoaded", () => {
                 setTimeout(type, speed);
             }
         }
+
+        // Helper to instantly render the full payload if tab loses focus
+        function finishInstantly() {
+            currentIndex = fullString.length; // Kills the active loop
+            targetElement.innerHTML = parseMarkdown(fullString);
+            lucide.createIcons();
+            scrollToBottom();
+            syncCurrentSessionToCache();
+        }
+
+        // Event listener to catch the exact moment the user switches tabs mid-generation
+        const visibilityHandler = () => {
+            if (document.hidden && currentIndex < fullString.length) {
+                finishInstantly();
+                document.removeEventListener("visibilitychange", visibilityHandler);
+            }
+        };
+        document.addEventListener("visibilitychange", visibilityHandler);
+
+        // Fire off the initial typewriter frame
         type();
     }
 
