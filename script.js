@@ -123,7 +123,7 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     }
 
-    // Strict pixel matching scaling layout execution loop (Matches updated css 32px height)
+    // Strict input scaling calculation logic
     function adjustInputHeight() {
         userInput.style.height = "32px"; 
         const scrollHeight = userInput.scrollHeight;
@@ -178,7 +178,6 @@ document.addEventListener("DOMContentLoaded", () => {
                 sidebarHistoryWrapper.prepend(historyToken);
                 lucide.createIcons();
 
-                // Bind functional hot swapping selection context listener 
                 historyToken.addEventListener("click", () => {
                     switchActiveSessionContext(historyToken.getAttribute("data-session-id"));
                 });
@@ -188,9 +187,7 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function switchActiveSessionContext(targetSessionId) {
-        // Save leaving environment frame
         syncCurrentSessionToCache();
-
         currentSessionId = targetSessionId;
         ensureSessionExists(currentSessionId);
         
@@ -207,7 +204,6 @@ document.addEventListener("DOMContentLoaded", () => {
         scrollToBottom();
     }
 
-    // New Chat Action Route Implementation Execution Handler
     if (newChatBtn) {
         newChatBtn.addEventListener("click", () => {
             const hasMessages = messagesContainer.querySelector(".message-wrapper");
@@ -217,7 +213,6 @@ document.addEventListener("DOMContentLoaded", () => {
 
             document.querySelectorAll(".history-item").forEach(token => token.classList.remove("active"));
             
-            // Factory fresh context state parameters mapping
             currentSessionId = "session_" + Date.now();
             ensureSessionExists(currentSessionId);
             
@@ -247,11 +242,9 @@ document.addEventListener("DOMContentLoaded", () => {
 
             appendMessage(queryText, "user");
             
-            // Lock user query into the session array pipeline memory
             ensureSessionExists(currentSessionId);
             chatSessions[currentSessionId].apiMessages.push({ role: "user", content: queryText });
 
-            // Intercept query state pipeline immediately to ensure sidebar layout binding rules mapping
             handleSidebarHistoryRegistration(queryText);
 
             userInput.value = "";
@@ -286,14 +279,12 @@ document.addEventListener("DOMContentLoaded", () => {
         const aiWrapper = appendMessage("", "ai");
         const bubble = aiWrapper.querySelector(".message-bubble");
 
-        // Modern time-bypassing background thinking configurations to survive tab freezes
         if (currentModel !== "flash-x") {
             const label = currentModel === "pro" ? "Thinking deeply..." : "Thinking...";
             let delayMs = currentModel === "pro" ? 5000 : 2500;
             
             bubble.innerHTML = `<div class="thinking-container"><div class="thinking-spinner"></div>${label}</div>`;
             
-            // Bypass thinking timers completely if user immediately focuses off-tab
             if (!document.hidden) {
                 await new Promise(resolve => {
                     const timer = setTimeout(resolve, delayMs);
@@ -317,25 +308,32 @@ document.addEventListener("DOMContentLoaded", () => {
 
         let currentSystemContent = 'You are an advanced, helpful AI assistant. If the user asks a technical or coding question, act as an expert coding engine and always use markdown codeblocks with the language name.';
         if (currentModel === "pro") {
-            currentSystemContent += ' For technical queries, provide extensive, deep architecture details, edge-case evaluations, and deep code comments. If the user is just greeting you or making small talk, respond conversationally, naturally, and concisely without generating unprompted code structures.';
+            currentSystemContent += ' For technical queries, provide extensive, deep architecture details, edge-case evaluations, and deep code comments.';
         }
 
         ensureSessionExists(currentSessionId);
         
-        // SAFE CHAR LIMITER: Counts characters backwards to prevent huge scripts from crashing the server
+        // --- ADVANCED PAYLOAD COMPRESSOR ENGINE ---
+        // Dynamically budgets character counts to protect the free tier pipeline from crashing
         let recentHistory = [];
         let totalChars = 0;
-        const maxChars = 7000; // Calibrated safe ceiling for free tier payloads
+        const maxChars = 3500; // Absolute safety ceiling threshold
         const historyArray = chatSessions[currentSessionId].apiMessages;
         
         for (let i = historyArray.length - 1; i >= 0; i--) {
-            if (totalChars + historyArray[i].content.length > maxChars) {
-                // Keep at least the immediate last message if it's monstrous
-                if (recentHistory.length === 0) recentHistory.unshift(historyArray[i]);
+            let msgContent = historyArray[i].content;
+            
+            // If an individual code response is massive, slice it for the API call payload only
+            if (msgContent.length > 2000) {
+                msgContent = msgContent.substring(0, 2000) + "\n\n[...System: Context truncated to save payload overhead...]";
+            }
+            
+            if (totalChars + msgContent.length > maxChars) {
                 break;
             }
-            recentHistory.unshift(historyArray[i]);
-            totalChars += historyArray[i].content.length;
+            
+            recentHistory.unshift({ role: historyArray[i].role, content: msgContent });
+            totalChars += msgContent.length;
         }
         
         const payloadMessages = [
@@ -343,7 +341,7 @@ document.addEventListener("DOMContentLoaded", () => {
             ...recentHistory
         ];
 
-        // AUTO-RETRY ENGINE: Tries up to 2 times automatically if a network packet drops
+        // Auto-Retry Logic Engine
         let attempts = 0;
         let success = false;
         let replyText = "";
@@ -357,7 +355,7 @@ document.addEventListener("DOMContentLoaded", () => {
                     body: JSON.stringify({ messages: payloadMessages })
                 });
 
-                if (!response.ok) throw new Error("API Pipeline Exception");
+                if (!response.ok) throw new Error("API Exception");
 
                 replyText = await response.text();
                 success = true;
@@ -365,29 +363,19 @@ document.addEventListener("DOMContentLoaded", () => {
                 if (attempts >= 2) {
                     console.error(error);
                     typingIndicator.remove();
-                    bubble.innerHTML = `<span style="color: #ef4444;">Server overloaded. Click "New Chat" or shorten your request to try again.</span>`;
+                    bubble.innerHTML = `<span style="color: #ef4444;">Server overloaded. Click "New Chat" to clear the stack and try again!</span>`;
                     syncCurrentSessionToCache();
                     return; 
                 }
-                // Wait 1 second before executing automatic recovery retry
                 await new Promise(r => setTimeout(r, 1000));
             }
         }
 
         typingIndicator.remove();
-        
-        // Log assistant answer array properties into session state indices
         chatSessions[currentSessionId].apiMessages.push({ role: "assistant", content: replyText });
         
         streamMarkdown(bubble, replyText);
         updateDropdownUI();
-    }
-        } catch (error) {
-            console.error(error);
-            typingIndicator.remove();
-            bubble.innerHTML = `<span style="color: #ef4444;">Network connection error. Check internet connection and retry.</span>`;
-            syncCurrentSessionToCache();
-        }
     }
 
     function highlightCode(code, lang) {
@@ -399,7 +387,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 { type: 'comment', regex: /(--.*)/g },
                 { type: 'string', regex: /("[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*')/g },
                 { type: 'keyword', regex: /\b(local|function|end|if|then|else|elseif|for|in|do|while|repeat|until|return|break|true|false|not|and|or)\b/g },
-                { type: 'builtin', regex: /\b(game|workspace|script|Instance|Vector3|CFrame|Color3|UDim2|math|table|string|pairs|ipairs|print|task|wait|Connect|ConnectParallel|Disconnect|FindFirstChild|FindFirstChildOfClass|FindFirstChildWhichIsA|IsA|WaitForChild|Destroy|Clone)\b/g },
+                { type: 'builtin', regex: /\b(game|workspace|script|Instance|Vector3|CFrame|Color3|UDim2|math|table|string|pairs|ipairs|print|task|wait|Connect|Disconnect|FindFirstChild|WaitForChild|Destroy)\b/g },
                 { type: 'number', regex: /\b(\d+)\b/g }
             ];
         } else if (lang === 'css') {
@@ -414,7 +402,7 @@ document.addEventListener("DOMContentLoaded", () => {
                 { type: 'comment', regex: /(\/\/.*|\/\*[\s\S]*?\*\/)/g },
                 { type: 'string', regex: /("[^"\\]*(?:\\.[^"\\]*)*"|'[^'\\]*(?:\\.[^'\\]*)*'|`[\s\S]*?`)/g },
                 { type: 'keyword', regex: /\b(const|let|var|function|return|if|else|for|while|do|switch|case|break|continue|class|new|this|true|false|null|async|await|try|catch)\b/g },
-                { type: 'builtin', regex: /\b(document|window|console|log|fetch|JSON|stringify|parse|addEventListener|createElement|querySelector|getElementById)\b/g },
+                { type: 'builtin', regex: /\b(document|window|console|log|fetch|JSON|stringify|parse|addEventListener|querySelector|getElementById)\b/g },
                 { type: 'number', regex: /\b(\d+)\b/g }
             ];
         }
@@ -473,7 +461,7 @@ document.addEventListener("DOMContentLoaded", () => {
     function parseMarkdown(text) {
         let escaped = text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
         
-        // AUTO-CLOSE BLOCK: Dynamically forces structural repair on truncated triple-backtick segments
+        // Auto-close open codeblocks if generation truncates early
         const codeBlockCount = (escaped.match(/```/g) || []).length;
         if (codeBlockCount % 2 !== 0) escaped += "\n```"; 
 
@@ -522,13 +510,10 @@ document.addEventListener("DOMContentLoaded", () => {
     // High-performance background tab resilient Delta-Time streaming engine
     function streamMarkdown(targetElement, fullString) {
         const startTime = Date.now();
-        const charsPerMs = 0.55; // Calibrated processing speed mechanics
+        const charsPerMs = 0.55; 
         
         function type() {
-            // Calculate absolute wall-clock intervals elapsed since initialization frame
             const elapsed = Date.now() - startTime;
-            
-            // Map exact positioning parameters against actual time loops to balance out Chrome throttling loops
             const currentIndex = Math.min(fullString.length, Math.floor(elapsed * charsPerMs));
             const runningText = fullString.substring(0, currentIndex);
             
